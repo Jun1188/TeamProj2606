@@ -15,6 +15,25 @@
 /[Uu]ser[Ss]ettings/
 *.log
 
+ # ==========================================
+# Unity 임시 및 캐시 파일 제외
+# ==========================================
+/[lL]ibrary/
+/[temp]/
+/[obj]/
+/[Build]/
+/[Builds]/
+/[Logs]/
+/[UserSettings]/
+
+
+# ==========================================
+# Odin Inspector (Sirenix) 제외 설정
+# ==========================================
+# Odin이 설치된 기본 플러그인 경로를 제외합니다.
+**/TeamProj2606to08_levelup/Assets/Plugins/Sirenix/
+**/TeamProj2606to08_levelup/Assets/Plugins/NuGet/
+
 # By default unity supports Blender asset imports, *.blend1 blender files do not need to be commited to version control.
 *.blend1
 *.blend1.meta
