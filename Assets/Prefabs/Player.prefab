@@ -236,9 +236,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   moveSpeed: 5
-  gun: {fileID: 0}
+  gun: {fileID: 2802793863481005645}
   jumpForce: 10
-  moveSpeed: 5
   rb: {fileID: 7805456220911163010}
   playerCamera: {fileID: 6780044117118029167}
   mouseSensitivity: 100
