@@ -4,88 +4,112 @@ using UnityEngine.UI;
 public class InventoryUI : MonoBehaviour
 {
     [Header("References")]
-    public Inventory inventory;             // 백엔드 Inventory
-    public GameObject itemSocketPrefab;     // 팀원의 ItemSocketPrefab
-    public Transform slotGridParent;        // 슬롯 프리팹들이 정렬될 Grid Layout Group 오브젝트
+    public Inventory inventory;             
+    public GameObject itemSocketPrefab;     
+    public Transform slotGridParent;        
 
     [Header("Mouse Drag Pointer UI")]
-    public ItemSocket mouseCarriageSlot;    //  마우스 커서를 따라다닐 임시 UI 슬롯 오브젝트
+    public ItemSocket mouseCarriageSlot;    
 
-    private ItemSocket[] uiSlots;           // 화면에 생성된 UI 슬롯들의 ItemSocket 컴포넌트 배열
-    private ItemStack mouseCarriageItem = null; // 현재 마우스가 쥐고 있는 아이템 데이터 정보
+    private ItemSocket[] uiSlots;           
+    private ItemStack mouseCarriageItem = null; 
 
     private void Awake()
     {
-        if (inventory == null) return; 
-
-        InitUISlots(); 
-        RefreshAllUI(); 
-    
+        // ⭐️ Awake에서는 데이터 검증만 하고 강제 비활성화하지 않습니다.
         if (mouseCarriageSlot != null) mouseCarriageSlot.ClearSlot(); 
-        gameObject.SetActive(false); 
+    }
+
+    private void Start()
+    {
+        // Start 시점에 안전하게 슬롯 레이아웃 빌드
+        if (inventory != null) 
+        {
+            InitUISlots(); 
+            RefreshAllUI(); 
+        }
+    }
+
+    private void InitUISlots()
+    {
+        if (inventory == null || slotGridParent == null || itemSocketPrefab == null) return;
+
+        // 기존에 잔여물이 남아있다면 청소
+        foreach (Transform child in slotGridParent) Destroy(child.gameObject);
+
+        int slotCount = inventory.slotCount;
+        uiSlots = new ItemSocket[slotCount];
+
+        for (int i = 0; i < slotCount; i++)
+        {
+            GameObject newSlot = Instantiate(itemSocketPrefab, slotGridParent);
+            ItemSocket socket = newSlot.GetComponent<ItemSocket>();
+            uiSlots[i] = socket;
+
+            InventorySlotUI slotLink = newSlot.GetComponent<InventorySlotUI>();
+            if (slotLink == null) slotLink = newSlot.AddComponent<InventorySlotUI>();
+            slotLink.Init(i, this);
+        }
+        Debug.Log($"[인벤토리 UI] {slotCount}개의 UI 슬롯 생성 성공!");
+    }
+
+    public void RefreshAllUI()
+    {
+        if (inventory == null) return;
+
+        // ⭐️ [핵심 패치] 초기화 타이밍 문제로 uiSlots가 생성이 안 된 상태라면 즉시 강제 생성
+        if (uiSlots == null || uiSlots.Length == 0)
+        {
+            InitUISlots();
+        }
+
+        if (uiSlots == null) return;
+
+        for (int i = 0; i < uiSlots.Length; i++)
+        {
+            if (i < inventory.slots.Length && inventory.slots[i] != null)
+            {
+                uiSlots[i].SetItem(inventory.slots[i].item, inventory.slots[i].amount);
+            }
+            else
+            {
+                uiSlots[i].ClearSlot();
+            }
+        }
+
+        if (mouseCarriageItem != null && mouseCarriageItem.item != null)
+        {
+            mouseCarriageSlot.SetItem(mouseCarriageItem.item, mouseCarriageItem.amount);
+        }
+        else
+        {
+            if (mouseCarriageSlot != null) mouseCarriageSlot.ClearSlot();
+        }
     }
 
     private void Update()
     {
-        // 마우스가 무언가 아이템을 쥐고 있다면 UI가 마우스 커서 위치를 실시간 추적
         if (mouseCarriageItem != null && mouseCarriageItem.item != null) 
         {
-            mouseCarriageSlot.gameObject.SetActive(true); 
-            mouseCarriageSlot.transform.position = Input.mousePosition; 
+            if (mouseCarriageSlot != null)
+            {
+                mouseCarriageSlot.gameObject.SetActive(true); 
+                mouseCarriageSlot.transform.position = Input.mousePosition; 
+            }
         }
         else
         {
-            if (mouseCarriageSlot != null) mouseCarriageSlot.gameObject.SetActive(false); 
+            if (mouseCarriageSlot != null) mouseCarriageSlot.gameObject.SetActive(false);
         }
     }
 
-    private void InitUISlots() 
+    public void OnSlotLeftClicked(int clickedIndex)
     {
-        uiSlots = new ItemSocket[inventory.slotCount]; 
+        if (inventory == null) return;
 
-        foreach (Transform child in slotGridParent) { Destroy(child.gameObject); } 
+        ItemStack clickedBackendSlot = inventory.slots[clickedIndex];
 
-        for (int i = 0; i < inventory.slotCount; i++) 
-        {
-            GameObject go = Instantiate(itemSocketPrefab, slotGridParent); 
-            ItemSocket socket = go.GetComponent<ItemSocket>(); 
-            uiSlots[i] = socket; 
-
-            InventorySlotUI slotUI = go.AddComponent<InventorySlotUI>(); 
-            slotUI.Init(i, this); 
-        }
-    }
-
-    public void RefreshAllUI() 
-    {
-        for (int i = 0; i < inventory.slotCount; i++) 
-        {
-            ItemStack backendStack = inventory.slots[i]; 
-            if (backendStack != null && backendStack.item != null) 
-            {
-                uiSlots[i].SetItem(backendStack.item, backendStack.amount); 
-            }
-            else
-            {
-                uiSlots[i].ClearSlot(); 
-            }
-        }
-
-        if (mouseCarriageItem != null && mouseCarriageItem.item != null) 
-        {
-            mouseCarriageSlot.SetItem(mouseCarriageItem.item, mouseCarriageItem.amount); 
-        }
-        else
-        {
-            mouseCarriageSlot.ClearSlot(); 
-        }
-    }
-
-    public void OnSlotLeftClicked(int clickedIndex) 
-    {
-        ItemStack clickedBackendSlot = inventory.slots[clickedIndex]; 
-
-        if (mouseCarriageItem == null || mouseCarriageItem.item == null) 
+        if (mouseCarriageItem == null)
         {
             if (clickedBackendSlot != null && clickedBackendSlot.item != null) 
             {
@@ -127,6 +151,6 @@ public class InventoryUI : MonoBehaviour
 
     public void OnSlotRightClicked(int clickedIndex)
     {
-        Debug.Log($"[인벤토리 매니저] {clickedIndex}번 슬롯 우클릭 됨");
+        // 확장용 구조 유지
     }
 }
