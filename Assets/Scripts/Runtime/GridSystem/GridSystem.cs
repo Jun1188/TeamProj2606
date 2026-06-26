@@ -1,8 +1,9 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// 월드 좌표 ↔ 그리드 좌표 변환만 담당하는 순수 로직 클래스.
 /// 점유 데이터는 들고 있지 않는다 (그건 PlacementSystem의 책임).
+/// 바닥은 XZ 평면, 높이는 Y로 가정한다.
 /// </summary>
 public class GridSystem
 {
@@ -15,6 +16,7 @@ public class GridSystem
         this.origin = origin;
     }
 
+    /// <summary>월드 좌표가 속한 셀을 구한다. (반드시 Floor — Round 쓰면 경계에서 어긋남)</summary>
     public Vector2Int WorldToGrid(Vector3 world)
     {
         int x = Mathf.FloorToInt((world.x - origin.x) / CellSize);

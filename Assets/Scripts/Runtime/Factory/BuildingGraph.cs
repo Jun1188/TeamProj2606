@@ -33,7 +33,7 @@ using UnityEngine;
 /// Push-Pull 방식: 생산자가 다음 건물에 TryAddInput() 호출,
 /// 소비자는 TryConsumeInput()으로 꺼낸다.
 /// </summary>
-public class BuildingInventory
+public class BuildingInventory : IFormattable
 {
     readonly Dictionary<string, (ItemDataSO item, int n)> _in  = new();
     readonly Dictionary<string, (ItemDataSO item, int n)> _out = new();
@@ -73,6 +73,13 @@ public class BuildingInventory
     // 순회 중 컬렉션 수정 방지 — 항상 ToList() 스냅샷 사용
     public List<(ItemDataSO item, int n)> OutputSnapshot => _out.Values.ToList();
     public List<(ItemDataSO item, int n)> InputSnapshot => _in.Values.ToList();
+
+    string IFormattable.ToString(string format, IFormatProvider formatProvider)
+    {
+        string inStr  = string.Join(", ", _in.Values.Select(v => $"{v.item.name}:{v.n}"));
+        string outStr = string.Join(", ", _out.Values.Select(v => $"{v.item.name}:{v.n}"));
+        return $"[BuildingInventory] In({inStr}) / Out({outStr})";
+    }
 }
 
 // ─── 연결 ───────────────────────────────────────────────────────

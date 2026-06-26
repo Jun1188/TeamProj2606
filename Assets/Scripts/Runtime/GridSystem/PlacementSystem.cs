@@ -8,7 +8,7 @@ using VInspector;
 ///
 /// 모드:
 ///  - None        : 아무것도 안 함
-///  - Placing     : SelectBuilding(data)로 진입. 좌클릭 설치.
+///  - Placing     : BuildingDataSO(data)로 진입. 좌클릭 설치.
 ///  - Demolishing : EnterDemolishMode()로 진입. 커서 위 건물 하이라이트, 좌클릭 철거.
 ///  두 모드 모두 우클릭/ESC로 빠져나온다.
 ///
@@ -21,7 +21,7 @@ public class PlacementSystem : MonoBehaviour
     [Header("References")]
     [SerializeField] private Camera cam;
     [SerializeField] private LayerMask groundMask;
-    [SerializeField] private BuildingData[] buildingDataList;
+    [SerializeField] private BuildingDataSO[] buildingDataList;
 
     [Header("Grid")]
     [SerializeField] private float cellSize = 1f;
@@ -37,19 +37,18 @@ public class PlacementSystem : MonoBehaviour
     [Tooltip("철거 모드에서 대상 건물에 입힐 하이라이트 머티리얼 (빨강 반투명 추천).")]
     [SerializeField] private Material demolishHighlightMat;
 
-    private GridSystem grid;
-    private readonly Dictionary<Vector2Int, PlacedBuilding> occupied = new();
+    [SerializeField] private GridSystem grid;
 
     private BuildMode mode = BuildMode.None;
 
     // 배치 모드 상태
-    private BuildingData current;
+    private BuildingDataSO current;
     private GameObject preview;
     private List<Renderer> previewRenderers = new();
     private int rotation;
 
     // 철거 모드 상태
-    private PlacedBuilding hovered;                              // 지금 하이라이트 중인 건물
+    private BuildingInstance hovered;                              // 지금 하이라이트 중인 건물
     private readonly Dictionary<Renderer, Material[]> savedMats = new(); // 원본 머티리얼 백업
 
     void Awake()
@@ -69,7 +68,7 @@ public class PlacementSystem : MonoBehaviour
 
     // ===================== 모드 진입/종료 =====================
 
-    public void SelectBuilding(BuildingData data)
+    public void SelectBuilding(BuildingDataSO data)
     {
         ExitMode();
         mode = BuildMode.Placing;
@@ -113,7 +112,8 @@ public class PlacementSystem : MonoBehaviour
         {
             _EnterDemolishModeTest();
         }
-        GUI.TextArea(new Rect(20, 300, 300, 300), "회전 : R");
+
+        GUI.TextArea(new Rect(20, 170, 100, 20), "회전 : R");
     }
 
     /// <summary>현재 모드를 빠져나오며 프리뷰/하이라이트를 정리한다.</summary>
@@ -149,7 +149,7 @@ public class PlacementSystem : MonoBehaviour
         bool heightOk = TryGetFootprintHeight(origin, size, out float groundY);
 
         Vector3 pos = grid.GetFootprintCenter(origin, size);
-        pos.y = groundY + current.yOffset;
+        pos.y = groundY;
         preview.transform.position = pos;
         preview.transform.rotation = Quaternion.Euler(0, rotation * 90, 0);
 
@@ -157,16 +157,12 @@ public class PlacementSystem : MonoBehaviour
         SetPreviewColor(canPlace);
 
         if (canPlace && Input.GetMouseButtonDown(0))
-            Place(origin, size, pos);
+            Place(origin, pos);
     }
 
-    private void Place(Vector2Int origin, Vector2Int size, Vector3 pos)
+    private void Place(Vector2Int origin, Vector3 pos)
     {
-        GameObject go = Instantiate(current.prefab, pos,
-                                    Quaternion.Euler(0, rotation * 90, 0));
-        var placed = new PlacedBuilding(current, origin, rotation, go);
-        foreach (var cell in GetCells(origin, size))
-            occupied[cell] = placed;
+        var placed = PlacementBridge.Place(current, origin, pos, rotation);
     }
 
     // ===================== 철거 모드 =====================
@@ -180,11 +176,11 @@ public class PlacementSystem : MonoBehaviour
         }
 
         // 커서가 가리키는 칸 → 그 칸의 건물 찾기
-        PlacedBuilding target = null;
+        BuildingInstance target = null;
         if (TryGetGroundPoint(out Vector3 cursorPoint))
         {
             Vector2Int cell = grid.WorldToGrid(cursorPoint);
-            occupied.TryGetValue(cell, out target);
+            GridRegistry.Instance.GetAt(cell, out target);
         }
 
         // 대상이 바뀌면 하이라이트 갱신
@@ -196,7 +192,7 @@ public class PlacementSystem : MonoBehaviour
     }
 
     /// <summary>특정 건물을 철거한다. 점유 칸 모두 해제 + 인스턴스 파괴.</summary>
-    public void Demolish(PlacedBuilding b)
+    public void Demolish(BuildingInstance b)
     {
         if (b == null) return;
 
@@ -207,30 +203,26 @@ public class PlacementSystem : MonoBehaviour
             savedMats.Clear();
         }
 
-        Vector2Int size = RotatedSize(b.data.size, b.rotation);
-        foreach (var c in GetCells(b.originCell, size))
-            occupied.Remove(c);
-
-        if (b.instance != null) Destroy(b.instance);
+        PlacementBridge.Remove(b);
     }
 
     /// <summary>칸 좌표로 철거 (외부 호출용 편의 오버로드).</summary>
     public void Demolish(Vector2Int cell)
     {
-        if (occupied.TryGetValue(cell, out PlacedBuilding b))
+        if (GridRegistry.Instance.GetAt(cell, out BuildingInstance b))
             Demolish(b);
     }
 
     // ---- 하이라이트 적용/복원 ----
-    private void SetHovered(PlacedBuilding b)
+    private void SetHovered(BuildingInstance b)
     {
         if (hovered == b) return;   // 변화 없으면 그대로
         ClearHovered();             // 이전 대상 원복
 
         hovered = b;
-        if (b == null || b.instance == null || demolishHighlightMat == null) return;
+        if (b == null || demolishHighlightMat == null) return;
 
-        foreach (var r in b.instance.GetComponentsInChildren<Renderer>())
+        foreach (var r in b.GetComponentsInChildren<Renderer>())
         {
             savedMats[r] = r.sharedMaterials;               // 원본 백업
             var arr = new Material[r.sharedMaterials.Length];
@@ -299,7 +291,7 @@ public class PlacementSystem : MonoBehaviour
         => (rot % 2 == 0) ? size : new Vector2Int(size.y, size.x);
 
     private bool CanPlace(Vector2Int origin, Vector2Int size)
-        => GetCells(origin, size).All(c => !occupied.ContainsKey(c));
+        => GetCells(origin, size).All(c => !GridRegistry.Instance.IsOccupied(c));
 
     private void SpawnPreview()
     {

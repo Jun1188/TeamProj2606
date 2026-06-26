@@ -1,6 +1,5 @@
-using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 // ─── 그리드 레지스트리 ──────────────────────────────────────────
 
 /// <summary>
@@ -21,5 +20,6 @@ public class GridRegistry : MonoBehaviour
     public void Add(Vector2Int cell, BuildingInstance b) => _grid[cell] = b;
     public void Remove(Vector2Int cell) => _grid.Remove(cell);
     public BuildingInstance GetAt(Vector2Int cell) => _grid.TryGetValue(cell, out var b) ? b : null;
+    public bool GetAt(Vector2Int cell, out BuildingInstance b) => _grid.TryGetValue(cell, out b);
     public bool IsOccupied(Vector2Int cell) => _grid.ContainsKey(cell);
 }
