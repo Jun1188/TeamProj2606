@@ -86,6 +86,7 @@ public class Gun : MonoBehaviour
 
     public bool Fire()
     {
+        if (!gameObject.activeSelf) return false;
         if (gunData == null || gunData.bulletPrefab == null) return false;
         if (Time.time < lastFireTime + gunData.fireRate) return false; 
         if (isReloading || currentAmmo <= 0) 
@@ -126,7 +127,7 @@ public class Gun : MonoBehaviour
 
     public void StartReload()
     {
-        if (isReloading || gunData == null || currentAmmo == gunData.magSize) return;
+        if (isReloading || gunData == null || currentAmmo == gunData.magSize || !gameObject.activeSelf) return;
         StartCoroutine(ReloadRoutine());
     }
 
@@ -156,15 +157,26 @@ public class Gun : MonoBehaviour
 
     public void ChangeGunData(GunData newGunData)
     {
+        if (newGunData == null) return;
+
+        if (gunData == null || gunData.bulletPrefab != newGunData.bulletPrefab)
+        {
+            bulletPool?.Clear(); // 풀 내부의 기존 구형 총알 오브젝트 파괴 및 공백화
+        }
+
         gunData = newGunData;
-        currentAmmo = gunData.magSize; // 새 총을 장착하면 탄창을 만땅으로 채워줍니다.
-        isReloading = false;           // 재장전 중 오작동 방지 초기화
-        Debug.Log($"[무기 교체 시스템] 현재 장착 무기: {gunData.gunName}");
+        currentAmmo = gunData.magSize; // 새 총을 장착하면 탄창을 가득 채워줍니다
+        isReloading = false;           // 이전 무기에서 진행 중이던 재장전 코루틴 상태 초기화
+        
+        Debug.Log($"[Gun 장착 완료] 현재 활성화된 무기 데이터: {gunData.gunName}");
     }
 
     public void ClearGunData()
     {
-        gunData = null; // 맨손 상태
+        gunData = null;
+        currentAmmo = 0;
+        isFiringPressed = false;
+        isReloading = false;
         Debug.Log("[무기 해제] 무기를 해제하여 공격할 수 없습니다.");
     }
 }

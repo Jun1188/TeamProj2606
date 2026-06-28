@@ -272,7 +272,7 @@ public class PlayerController : Entity
 
     public void OnFire(InputValue value)
     {
-        if (isInventoryOpen || gun == null) return;
+        if (isInventoryOpen || gun == null || !gun.gameObject.activeInHierarchy) return;
         
         isFiringPressed = value.isPressed;
         
@@ -319,13 +319,51 @@ public class PlayerController : Entity
         }
     }
 
+    // PlayerController.cs 내부의 치트 함수를 아래 내용으로 덮어써 주세요.
     private void TriggerDebugItemInject()
     {
         if (playerInventory != null && debugTestItem != null)
         {
-            playerInventory.AddItem(debugTestItem, 1);
-            if (inventoryUI != null) inventoryUI.RefreshAllUI();
-            Debug.Log($"[치트] {debugTestItem.name} 1개 주입!");
+            // 🛠️ 테스트하고 싶은 슬롯 번호 지정 (0 = 첫 번째 무기 슬롯 / 1 = 두 번째 슬롯)
+            int targetIndex = 1; 
+            int injectAmount = 10; // 한 번 누를 때마다 10개씩 스폰
+
+            ItemStack targetSlot = playerInventory.slots[targetIndex];
+
+            // Case 1: 해당 슬롯이 완전히 비어있는 경우 -> 새로 생성
+            if (targetSlot == null || targetSlot.item == null)
+            {
+                playerInventory.slots[targetIndex] = new ItemStack(debugTestItem, injectAmount);
+                Debug.Log($"[치트] {targetIndex}번 슬롯에 {debugTestItem.name} {injectAmount}개 새로 생성!");
+            }
+            // Case 2: 이미 같은 아이템이 들어있는 경우 -> 합치기(Stack) 작동 테스트
+            else if (targetSlot.item == debugTestItem)
+            {
+                int canStackAmount = targetSlot.maxStackSize - targetSlot.amount; // 들어갈 수 있는 남은 공간
+                int actualAdd = Mathf.Min(canStackAmount, injectAmount);         // 남은 공간과 스폰할 개수 중 최소값
+
+                if (actualAdd > 0)
+                {
+                    targetSlot.amount += actualAdd;
+                    Debug.Log($" {targetIndex}번 슬롯의 기존 아이템과 합쳐짐! (+{actualAdd}개 / 현재: {targetSlot.amount}/{targetSlot.maxStackSize})");
+                }
+                else
+                {
+                    Debug.LogWarning($"[치트] {targetIndex}번 슬롯이 이미 최대 수량({targetSlot.maxStackSize}개)으로 가득 찼습니다!");
+                }
+            }
+            // Case 3: 슬롯에 다른 종류의 아이템이 꽂혀있는 경우
+            else
+            {
+                Debug.LogError($"[치트] {targetIndex}번 슬롯에 다른 아이템({targetSlot.item.name})이 있어 생성할 수 없습니다. 슬롯을 비워주세요!");
+            }
+
+            // ⭐️ 중요: 치트키로 백엔드 데이터를 강제로 바꿨으므로 화면의 UI를 새로고침 해줍니다.
+            InventoryUI[] allActiveUIs = FindObjectsByType<InventoryUI>(FindObjectsSortMode.None);
+            foreach (InventoryUI ui in allActiveUIs)
+            {
+                if (ui.gameObject.activeSelf) ui.RefreshAllUI();
+            }
         }
-    }
+    } 
 }

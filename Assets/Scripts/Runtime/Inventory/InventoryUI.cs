@@ -69,7 +69,7 @@ public class InventoryUI : MonoBehaviour
     public void OnSlotLeftClicked(int clickedIndex)
     {
         if (inventory == null) return;
-        InventoryManager.Instance.HandleSlotLeftClick(inventory, clickedIndex, this);
+        InventoryManager.Instance.HandleSlotLeftClick(inventory, clickedIndex);
     }
 
     public void OnSlotRightClicked(int clickedIndex)

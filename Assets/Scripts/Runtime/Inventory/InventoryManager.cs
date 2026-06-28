@@ -20,6 +20,8 @@ public class InventoryManager : MonoBehaviour
     private void Start()
     {
         if (mouseCarriageSlot != null) mouseCarriageSlot.ClearSlot();
+
+        ForceCheckWeaponEquip();
     }
 
     private void Update()
@@ -39,7 +41,7 @@ public class InventoryManager : MonoBehaviour
     /// <summary>
     /// 엔드필드 스타일 핵심: 플레이어 가방이든, 건물 창고 UI든 슬롯을 누르면 무조건 이 중앙 함수로 모입니다.
     /// </summary>
-    public void HandleSlotLeftClick(Inventory inventory, int clickedIndex, InventoryUI uiSource)
+    public void HandleSlotLeftClick(Inventory inventory, int clickedIndex)
     {
         ItemStack clickedBackendSlot = inventory.slots[clickedIndex];
 
@@ -91,36 +93,55 @@ public class InventoryManager : MonoBehaviour
         else
             mouseCarriageSlot.ClearSlot();
 
-        // ⭐️ [기능 1] 만약 상호작용한 인벤토리가 플레이어 가방이라면 무기 장착 여부를 실시간 체크!
+        // 만약 상호작용한 인벤토리가 플레이어 가방이라면 무기 장착 여부를 실시간 체크!
         if (playerController != null && inventory == playerController.playerInventory)
         {
             CheckWeaponEquip(inventory);
         }
-
-        // ⭐️ [기능 2] 화면에 열려있는 모든 인벤토리 UI 새로고침 (가방과 건물 UI가 동시에 켜져있어도 한방에 싱크 완료)
+        // 화면에 열려있는 모든 인벤토리 UI 새로고침 (가방과 건물 UI가 동시에 켜져있어도 한방에 싱크 완료)
         InventoryUI[] allActiveUIs = FindObjectsByType<InventoryUI>(FindObjectsSortMode.None);
         foreach (InventoryUI ui in allActiveUIs)
         {
             if (ui.gameObject.activeSelf) ui.RefreshAllUI();
         }
+
     }
 
     // 플레이어 가방의 0번 슬롯(첫 번째 칸)을 무기 슬롯으로 감시하는 로직
     private void CheckWeaponEquip(Inventory playerInventory)
     {
-        if (playerInventory.slots.Length > 0)
+        if (playerInventory == null || playerInventory.slots == null || playerInventory.slots.Length == 0) return;
+
+        ItemStack firstSlot = playerInventory.slots[0];
+        
+        // 0번 슬롯에 아이템이 존재하고, 그것이 무기 데이터(WeaponItemSO)인 경우
+        if (firstSlot != null && firstSlot.item != null && firstSlot.item is WeaponItemSO weaponItem && firstSlot.amount > 0)
         {
-            ItemStack firstSlot = playerInventory.slots[0];
-            
-            // 0번 칸에 아이템이 존재하고, 그 아이템이 WeaponItemSO 타입이라면 무기 교체!
-            if (firstSlot != null && firstSlot.item is WeaponItemSO weaponItem)
+            if (playerController.gun != null)
             {
-                playerController.EquipWeapon(weaponItem);
+                // 1. 꺼져있던 총 오브젝트를 활성화
+                playerController.gun.gameObject.SetActive(true);
+                // 2. 새로운 무기 스크립터블 오브젝트 데이터 주입 및 스왑 연동
+                playerController.gun.ChangeGunData(weaponItem.gunData); 
+                Debug.Log($"[시스템] 무기 장착 성공: {weaponItem.gunData.gunName}");
             }
-            else
+        }
+        else
+        {
+            // 0번 슬롯이 비었거나 무기가 아니라면 총 오브젝트 비활성화
+            if (playerController.gun != null)
             {
-                playerController.UnequipWeapon(); // 비었거나 다른 아이템이면 맨손
+                playerController.gun.gameObject.SetActive(false);
+                Debug.Log("[시스템] 무기 해제: 0번 슬롯이 비어있어 무기가 해제되었습니다.");
             }
+        }
+    }
+
+    public void ForceCheckWeaponEquip()
+    {
+        if (playerController != null && playerController.playerInventory != null)
+        {
+            CheckWeaponEquip(playerController.playerInventory);
         }
     }
 }
