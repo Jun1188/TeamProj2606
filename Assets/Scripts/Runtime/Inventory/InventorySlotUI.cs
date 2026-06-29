@@ -25,4 +25,6 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             inventoryUI.OnSlotRightClicked(slotIndex);
         }
     }
+
+    
 }
